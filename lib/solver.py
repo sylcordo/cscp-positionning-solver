@@ -44,10 +44,9 @@ def main(sheet_url, credentials):
         print("📝 Préparation des résultats...")
         results_df = data_processor.prepare_results_dataframe(assignments_per_music)
         stats_df = data_processor.prepare_stats_dataframe(assign_results)
-
-        import pandas as pd
-
-        violations_df = pd.DataFrame(violations)
+        violations_df = data_processor.prepare_violations_dataframe(
+            assignments_per_music
+        )
 
         print("💾 Écriture des résultats dans Google Sheets...")
         sheets.write_results(results_df, stats_df, violations_df)

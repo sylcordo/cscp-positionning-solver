@@ -201,3 +201,69 @@ class DataProcessor:
         stats_df.reset_index(drop=True, inplace=True)
 
         return stats_df
+
+    def prepare_violations_dataframe(self, assignments_per_music):
+        """
+        Prépare le DataFrame de violations au format similaire aux résultats.
+
+        Pour chaque choriste et chaque musique, calcule l'écart par rapport à son souhait:
+        - 0: souhait respecté ou "peu importe"
+        - 1: écart de 1 rang (ex: milieu au lieu de devant, ou derrière au lieu de milieu)
+        - 2: écart de 2 rangs (ex: derrière au lieu de devant, ou devant au lieu de derrière)
+
+        Args:
+            assignments_per_music: Dict {musique: [rangs assignés par personne]}
+
+        Returns:
+            DataFrame des violations (1 ligne par choriste, 1 colonne par musique)
+        """
+        # Mapping des écarts entre les rangs
+        rank_distance = {
+            ("devant", "devant"): 0,
+            ("devant", "milieu"): 1,
+            ("devant", "derriere"): 2,
+            ("milieu", "milieu"): 0,
+            ("milieu", "devant"): 1,
+            ("milieu", "derriere"): 1,
+            ("derriere", "derriere"): 0,
+            ("derriere", "milieu"): 1,
+            ("derriere", "devant"): 2,
+        }
+
+        # Créer le DataFrame de base avec Nom et Pupitre
+        violations_df = self.df[["Nom", "Pupitre"]].copy()
+
+        # Pour chaque musique, calculer les violations
+        for mus in self.music_cols:
+            assignments = assignments_per_music.get(mus, [])
+            violations_col = []
+
+            for idx in range(len(self.df)):
+                # Récupérer la préférence du choriste
+                raw_pref = self.df.loc[idx, mus]
+                pref = self.normalize_preference(raw_pref)
+
+                # Récupérer l'assignation
+                assigned = assignments[idx] if idx < len(assignments) else "UNASSIGNED"
+                assigned = str(assigned).lower()
+
+                # Calculer l'écart
+                if pref == "peu importe":
+                    # Si "peu importe", toujours 0 (pas de violation)
+                    violation = 0
+                elif assigned == "unassigned" or assigned not in [
+                    "devant",
+                    "milieu",
+                    "derriere",
+                ]:
+                    violation = 0  # Pas d'écart si pas assigné
+                else:
+                    # Calculer la distance entre la préférence et l'assignation
+                    key = (pref, assigned)
+                    violation = rank_distance.get(key, 0)
+
+                violations_col.append(violation)
+
+            violations_df[mus] = violations_col
+
+        return violations_df
